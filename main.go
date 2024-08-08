@@ -10,67 +10,31 @@ import (
 
 type Directions int8
 
-const (
-	UP    Directions = 1
-	DOWN  Directions = 2
-	LEFT  Directions = 3
-	RIGHT Directions = 4
-)
-
-// mapLength:= 10
-// width := 20
 type model struct {
 	direction Directions
 	counter   int
-	terrain   [11][21]string
+	terrain   [MAP_LENGTH][MAP_WIDTH]string
 	snake     [][2]int
+	apple     [2]int
 }
 
 func initModel() model {
 
-	terrain := [11][21]string{}
+	terrain := [MAP_LENGTH][MAP_WIDTH]string{}
 
-	snake := [][2]int{{5, 5}}
-	for i := 0; i < 11; i++ {
-		for j := 0; j < 21; j++ {
-			if i == 0 && j == 0 {
-				terrain[i][j] = "┌"
-				continue
-			}
-			if i == 0 && j == 19 {
-				terrain[i][j] = "┐"
-				continue
-			}
-			if i == 9 && j == 0 {
-				terrain[i][j] = "└"
-				continue
-			}
-			if i == 9 && j == 19 {
-				terrain[i][j] = "┘"
-				continue
-			}
-			if i == 0 || i == 9 {
-				terrain[i][j] = "─"
-				continue
-			}
-			if j == 0 || j == 19 {
-				terrain[i][j] = "│"
-				continue
-			}
-			terrain[i][j] = " "
+	apple := randomCoordinates(1, MAP_LENGTH-1)
+	snake := [][2]int{{MAP_LENGTH / 2, MAP_WIDTH / 2}}
 
-		}
-	}
-
-	for i := 0; i < len(snake); i++ {
-		terrain[snake[i][0]][snake[i][1]] = "#"
+	for isAppleInSnake(snake, apple) {
+		apple = randomCoordinates(1, MAP_LENGTH-1)
 	}
 
 	return model{
 		counter:   0,
 		direction: UP,
-		terrain:   terrain,
+		terrain:   renderMap(terrain, snake, apple),
 		snake:     snake,
+		apple:     apple,
 	}
 }
 
@@ -98,6 +62,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tickMsg:
 		{
+			newPosition := m.snake[0]
+			switch m.direction {
+			case UP:
+				newPosition[0]--
+			case DOWN:
+				newPosition[0]++
+			case LEFT:
+				newPosition[1]--
+			case RIGHT:
+				newPosition[1]++
+			}
+			newPositionSlice := [][2]int{{newPosition[0], newPosition[1]}}
+
+			m.snake = append(newPositionSlice, m.snake...)
+			isToRemoveValue := true
+
+			if newPosition[0] == m.apple[0] && newPosition[1] == m.apple[1] {
+				isToRemoveValue = false
+				m.apple = randomCoordinates(1, MAP_LENGTH-1)
+				for isAppleInSnake(m.snake, m.apple) {
+					m.apple = randomCoordinates(1, MAP_LENGTH-1)
+				}
+				m.terrain[m.apple[0]][m.apple[1]] = APPLE_CHAR
+			}
+
+			if isToRemoveValue {
+				removedValue := m.snake[len(m.snake)-1]
+				m.snake = m.snake[:len(m.snake)-1]
+				m.terrain[removedValue[0]][removedValue[1]] = TERRAIN_CHAR
+			}
+
+			for i := 0; i < len(m.snake); i++ {
+				m.terrain[m.snake[i][0]][m.snake[i][1]] = USER_CHAR
+			}
 			m.counter++
 			return m, tick()
 		}
@@ -107,17 +105,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	s := ""
-
-	for i := 0; i < 10; i++ {
-		for j := 0; j < 20; j++ {
+	s := "This is the snake game\n"
+	s += "Press q to quit.\n"
+	for i := 0; i < MAP_LENGTH; i++ {
+		for j := 0; j < MAP_WIDTH; j++ {
 			s += m.terrain[i][j]
 		}
 		s += "\n"
 	}
-	s += "\n This is the direction: " + fmt.Sprint(m.direction) + "\n"
-	s += "\n This is the counter: " + fmt.Sprint(m.counter) + "\n"
-	s += "\nPress q to quit.\n"
+	s += "\n Your current points are: " + fmt.Sprint(len(m.snake)) + "\n"
 
 	return s
 }
