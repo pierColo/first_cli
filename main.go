@@ -17,6 +17,7 @@ type model struct {
 	snake     [][2]int
 	apple     [2]int
 	isLost    bool
+	isWon     bool
 }
 
 func initModel() model {
@@ -37,6 +38,7 @@ func initModel() model {
 		snake:     snake,
 		apple:     apple,
 		isLost:    false,
+		isWon:     false,
 	}
 }
 
@@ -69,7 +71,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.direction = RIGHT
 				}
 			}
-			if m.isLost && msg.String() == "b" {
+			if (m.isLost || m.isWon) && msg.String() == "b" {
 				return initModel(), tick()
 			}
 		}
@@ -95,12 +97,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			if areCoordinatesInSnake(m.snake, newPosition) {
+			if len(m.snake) == ((MAP_LENGTH-2)*(MAP_WIDTH-2) - 1) {
+				println("You won the game")
+				m.isWon = true
+				return m, nil
+			}
+			if areCoordinatesInSnake(m.snake[:len(m.snake)-1], newPosition) {
 				m.isLost = true
 				return m, nil
 			}
 
-			isSnakeOutOffBorder := newPosition[0] < 0 || newPosition[0] >= MAP_LENGTH || newPosition[1] < 0 || newPosition[1] >= MAP_WIDTH
+			isSnakeOutOffBorder := newPosition[0] <= 0 || newPosition[0] >= MAP_LENGTH-1 || newPosition[1] <= 0 || newPosition[1] >= MAP_WIDTH-1
 
 			if isSnakeOutOffBorder {
 				m.isLost = true
@@ -112,8 +119,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.snake = append(newPositionSlice, m.snake...)
 			isToRemoveValue := true
 
-			/*Snake on apple add point*/
-			if newPosition[0] == m.apple[0] && newPosition[1] == m.apple[1] {
+			isSnakeOnApple := newPosition[0] == m.apple[0] && newPosition[1] == m.apple[1]
+
+			if isSnakeOnApple {
 				isToRemoveValue = false
 				m.apple = randomCoordinates(1, MAP_LENGTH-1)
 				for areCoordinatesInSnake(m.snake, m.apple) {
@@ -134,10 +142,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.counter++
 			return m, tick()
 		}
-	case tea.QuitMsg:
-		{
-			return m, tea.Quit
-		}
 	}
 
 	return m, nil
@@ -148,6 +152,12 @@ func (m model) View() string {
 	s := ""
 	if m.isLost {
 		s += "You lost the game with " + fmt.Sprint(len(m.snake)) + " points\n Press b to play again\n"
+		s += "Or press q to exit\n"
+		return s
+	}
+
+	if m.isWon {
+		s += "You won the game with " + fmt.Sprint(len(m.snake)) + " points\n Press b to play again\n"
 		s += "Or press q to exit\n"
 		return s
 	}

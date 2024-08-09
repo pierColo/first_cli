@@ -10,8 +10,8 @@ const (
 
 // Map settings
 const (
-	MAP_LENGTH int = 10
-	MAP_WIDTH  int = 10
+	MAP_LENGTH int = 5
+	MAP_WIDTH  int = 5
 )
 
 //Map chars
