@@ -16,6 +16,7 @@ type model struct {
 	terrain   [MAP_LENGTH][MAP_WIDTH]string
 	snake     [][2]int
 	apple     [2]int
+	isLost    bool
 }
 
 func initModel() model {
@@ -25,7 +26,7 @@ func initModel() model {
 	apple := randomCoordinates(1, MAP_LENGTH-1)
 	snake := [][2]int{{MAP_LENGTH / 2, MAP_WIDTH / 2}}
 
-	for isAppleInSnake(snake, apple) {
+	for areCoordinatesInSnake(snake, apple) {
 		apple = randomCoordinates(1, MAP_LENGTH-1)
 	}
 
@@ -35,6 +36,7 @@ func initModel() model {
 		terrain:   renderMap(terrain, snake, apple),
 		snake:     snake,
 		apple:     apple,
+		isLost:    false,
 	}
 }
 
@@ -51,13 +53,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c", "q":
 				return m, tea.Quit
 			case "up", "w":
-				m.direction = UP
+				if !(m.direction == DOWN && len(m.snake) > 1) {
+					m.direction = UP
+				}
 			case "down", "s":
-				m.direction = DOWN
+				if !(m.direction == UP && len(m.snake) > 1) {
+					m.direction = DOWN
+				}
 			case "left", "a":
-				m.direction = LEFT
+				if !(m.direction == RIGHT && len(m.snake) > 1) {
+					m.direction = LEFT
+				}
 			case "right", "d":
-				m.direction = RIGHT
+				if !(m.direction == LEFT && len(m.snake) > 1) {
+					m.direction = RIGHT
+				}
+			}
+			if m.isLost && msg.String() == "b" {
+				return initModel(), tick()
 			}
 		}
 	case tickMsg:
@@ -65,23 +78,45 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newPosition := m.snake[0]
 			switch m.direction {
 			case UP:
-				newPosition[0]--
+				if m.direction != DOWN {
+					newPosition[0]--
+				}
 			case DOWN:
-				newPosition[0]++
+				if m.direction != UP {
+					newPosition[0]++
+				}
 			case LEFT:
-				newPosition[1]--
+				if m.direction != RIGHT {
+					newPosition[1]--
+				}
 			case RIGHT:
-				newPosition[1]++
+				if m.direction != LEFT {
+					newPosition[1]++
+				}
 			}
+
+			if areCoordinatesInSnake(m.snake, newPosition) {
+				m.isLost = true
+				return m, nil
+			}
+
+			isSnakeOutOffBorder := newPosition[0] < 0 || newPosition[0] >= MAP_LENGTH || newPosition[1] < 0 || newPosition[1] >= MAP_WIDTH
+
+			if isSnakeOutOffBorder {
+				m.isLost = true
+				return m, nil
+			}
+
 			newPositionSlice := [][2]int{{newPosition[0], newPosition[1]}}
 
 			m.snake = append(newPositionSlice, m.snake...)
 			isToRemoveValue := true
 
+			/*Snake on apple add point*/
 			if newPosition[0] == m.apple[0] && newPosition[1] == m.apple[1] {
 				isToRemoveValue = false
 				m.apple = randomCoordinates(1, MAP_LENGTH-1)
-				for isAppleInSnake(m.snake, m.apple) {
+				for areCoordinatesInSnake(m.snake, m.apple) {
 					m.apple = randomCoordinates(1, MAP_LENGTH-1)
 				}
 				m.terrain[m.apple[0]][m.apple[1]] = APPLE_CHAR
@@ -99,14 +134,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.counter++
 			return m, tick()
 		}
+	case tea.QuitMsg:
+		{
+			return m, tea.Quit
+		}
 	}
 
 	return m, nil
 }
 
 func (m model) View() string {
-	s := "This is the snake game\n"
-	s += "Press q to quit.\n"
+
+	s := ""
+	if m.isLost {
+		s += "You lost the game with " + fmt.Sprint(len(m.snake)) + " points\n Press b to play again\n"
+		s += "Or press q to exit\n"
+		return s
+	}
+	s += "This is the snake game\n"
+
 	for i := 0; i < MAP_LENGTH; i++ {
 		for j := 0; j < MAP_WIDTH; j++ {
 			s += m.terrain[i][j]

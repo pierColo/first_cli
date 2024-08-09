@@ -10,9 +10,9 @@ func randRange(min, max int) int {
 func randomCoordinates(from int, to int) [2]int {
 	return [2]int{randRange(from, to), randRange(from, to)}
 }
-func isAppleInSnake(snake [][2]int, apple [2]int) bool {
+func areCoordinatesInSnake(snake [][2]int, coordinates [2]int) bool {
 	for i := 0; i < len(snake); i++ {
-		if snake[i] == apple {
+		if snake[i] == coordinates {
 			return true
 		}
 	}
